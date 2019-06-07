@@ -1,5 +1,7 @@
 package com.bookeater;
 
+import com.bookeater.model.Book;
+
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -9,21 +11,10 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.*;
-import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet(name = "Checkout", urlPatterns = "/checkout")
 public class Checkout extends HttpServlet {
-
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
 
     private void processRequest (HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         response.setContentType("text/html");
@@ -38,40 +29,20 @@ public class Checkout extends HttpServlet {
 
     private void writeTotalPrice (HttpServletRequest request, HttpServletResponse response) throws IOException {
         PrintWriter out = response.getWriter();
-        Connection conn = null;
-        Statement stmt = null;
 
         HttpSession session = request.getSession(false);
-        ArrayList<String> list = (ArrayList<String>) session.getAttribute("cart");
+        List<Book> list = (List<Book>) session.getAttribute("cart");
 
-        try {
-            try {
-                String timezone = "?useLegacyDatetimeCode=false&serverTimezone=UTC";
-                conn = DriverManager.getConnection("jdbc:mysql://localhost/Products" + timezone, "root", "UuINyEpOccooeTn1");
-                stmt = conn.createStatement();
+        float total = 0;
+        if (list.size() > 0) {
+            for (Book b : list)
+                total += b.getPrice();
 
-                if (list.size() > 0) {
-                    String query = "SELECT SUM(price) AS total FROM Books";
-                    query += " WHERE " + wrapQueryString("\" OR ", list);
-
-                    out.println("<div class=\"cells-title\"><span>");
-                    ResultSet rs = stmt.executeQuery(query);
-                    if (rs.next())
-                        out.printf("Total price: $%.2f</span></div>", rs.getFloat("total"));
-                    writeOrderForm(response);
-                } else {
-                    out.printf("<div class=\"cells-title\"><span>No item in shopping cart</span></div>");
-                }
-
-            } catch (Exception e) {
-                response.sendError(500, e.toString());
-            } finally {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            }
-
-        } catch (SQLException e) {
-            response.sendError(500, e.toString());
+            out.println("<div class=\"cells-title\"><span>");
+            out.printf("Total price: $%.2f</span></div>", total);
+            writeOrderForm(response);
+        } else {
+            out.printf("<div class=\"cells-title\"><span>No item in shopping cart</span></div>");
         }
     }
 
@@ -141,11 +112,6 @@ public class Checkout extends HttpServlet {
                 "                <input type=\"submit\" name=\"submit\" value=\"Submit\">\n" +
                 "            </form>\n");
     }
-
-    private String wrapQueryString (String delim, ArrayList<String> list) {
-        return "ISBN = \"" + String.join(delim + "ISBN = \"", list) + "\"";
-    }
-
 
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         processRequest(request, response);

@@ -1,5 +1,8 @@
 package com.bookeater;
 
+import com.bookeater.model.Book;
+import com.bookeater.utility.RestClient;
+
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -8,7 +11,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.*;
+import java.util.List;
 
 @WebServlet(name = "Search", urlPatterns = "/search")
 public class Search extends HttpServlet {
@@ -30,57 +33,31 @@ public class Search extends HttpServlet {
 
         PrintWriter out = response.getWriter();
         String query = request.getParameter("search");
-        if (query == null) out.println("<div class=\"cells-title\"><span>Error</span></div>");
-        else if (query.length() < MIN_LENGTH) out.printf("<div class=\"cells-title\"><span>Minimum %d characters</span></div>", MIN_LENGTH);
+        out.println("<section>");
+        if (query == null)
+            out.println("<div class=\"cells-title\"><span>Error</span></div>");
+
+        else if (query.length() < MIN_LENGTH)
+            out.printf("<div class=\"cells-title\"><span>Minimum %d characters</span></div>", MIN_LENGTH);
+
         else {
-            Connection conn = null;
-            PreparedStatement stmt = null;
-            try {
-                try {
-                    String timezone = "?useLegacyDatetimeCode=false&serverTimezone=UTC";
-                    conn = DriverManager.getConnection("jdbc:mysql://localhost/Products" + timezone, "root", "UuINyEpOccooeTn1");
-                    String sql = "SELECT DISTINCT `title`, `author`, `price`, `ISBN`, `img` FROM `Books`, `Categories` WHERE (" +
-                            "UPPER(`Books`.`title`) LIKE UPPER(?) or UPPER(`Books`.`author`) LIKE UPPER(?) or" +
-                            "(`Books`.`ISBN` = ?) or `Categories`.`cid` = `Books`.`category` AND " +
-                            "UPPER(`Categories`.`category`) LIKE UPPER(?))";
-                    String query_like = "%" + query + "%";
-                    stmt = conn.prepareStatement(sql);
-                    stmt.setString(1, query_like);
-                    stmt.setString(2, query_like);
-                    stmt.setString(3, query);
-                    stmt.setString(4, query_like);
-
-                    ResultSet rs = stmt.executeQuery();
-                    if (!rs.isBeforeFirst())
-                        out.println("<div class=\"cells-title\"><span>No results found</span></div>");
-                    else {
-                        int i = 0;
-                        String res = "<div class=\"cells\">";
-                        while (rs.next()) {
-                            res += "<div class=\"cell\">\n" +
-                                    "<a href=\"detail?pid=" + rs.getString("ISBN") + "\"><img src=\"" +
-                                    rs.getString("img").substring(1) + "\"></a>\n" +
-                                    "<div class=\"book-title cell-text\">" + rs.getString("title") + "</div>\n" +
-                                    "<div class=\"book-author cell-text\">by " + rs.getString("author") + "</div>\n" +
-                                    "<div class=\"book-price cell-text\">$" + rs.getFloat("price") + "0</div>\n" +
-                                    "</div>";
-                            i++;
-                        }
-                        res += "</div>";
-                        out.printf("<div class=\"cells-title\"><span>%d results</span></div>", i);
-                        out.println(res);
-                    }
-
-                } catch (Exception e) {
-                    out.println(e);
-                } finally {
-                    if (stmt != null) stmt.close();
-                    if (conn != null) conn.close();
+            List<Book> bookList = RestClient.getBooksByKeyword(query);
+            if (bookList.size() == 0)
+                out.println("<div class=\"cells-title\"><span>No results found</span></div>");
+            else {
+                out.printf("<div class=\"cells-title\"><span>%d results</span></div>", bookList.size());
+                out.println("<div class=\"cells\">");
+                for (Book b : bookList) {
+                    out.println("<div class=\"cell\">\n" +
+                            "<a href=\"detail?pid=" + b.getBookId() + "\"><img src=\"" + b.getImage().substring(1) + "\"></a>\n" +
+                            "<div class=\"book-title cell-text\">" + b.getTitle() + "</div>\n" +
+                            "<div class=\"book-author cell-text\">by " + b.getAuthor() + "</div>\n" +
+                            "<div class=\"book-price cell-text\">$" + String.format("%.2f", (float)b.getPrice()) + "</div>\n" +
+                            "</div>");
                 }
-
-            } catch (Exception e) {
-                out.println(e);
+                out.println("</div>");
             }
         }
+        out.println("</section>");
     }
 }

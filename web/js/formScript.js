@@ -40,7 +40,7 @@ function validateForm() {
         alert("Address contains invalid characters");
         return false;
     }
-    if (!checkPattern(city, "^[A-Za-z]+$")) {
+    if (!checkPattern(city, "^[A-Za-z\\s]+$")) {
         alert("City contains invalid characters");
         return false;
     }

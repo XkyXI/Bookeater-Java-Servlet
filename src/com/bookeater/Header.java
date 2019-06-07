@@ -1,5 +1,9 @@
 package com.bookeater;
 
+import com.bookeater.model.Book;
+import com.bookeater.model.Category;
+import com.bookeater.utility.RestClient;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -8,77 +12,58 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.*;
 import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet(name = "Header", urlPatterns = "/header")
 public class Header extends HttpServlet {
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
 
+    // Header is the servlet to create the session object
+    // Due to the fact that it will be present for every page of Bookeater
     private void createSession (HttpServletRequest request) {
         HttpSession session = request.getSession(true);
-        ArrayList<String> recentlyVisitedItems = new ArrayList<String>();
-        ArrayList<String> shoppingCart = new ArrayList<String>();
 
-        if (session.isNew()) {
+        if (session.isNew()) { // only set attribute if the session is new
+            List<Book> recentlyVisitedItems = new ArrayList<>();
+            List<Book> shoppingCart = new ArrayList<>();
+
+            // there will be two attributes for session:
+            // "visited": record user's 5 recently visited books
+            // "cart": record user's shopping cart
             session.setAttribute("visited", recentlyVisitedItems);
             session.setAttribute("cart", shoppingCart);
         }
     }
 
+    // process the request for both get and post
     private void processRequest (HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         response.setContentType("text/html");
         PrintWriter out = response.getWriter();
         createSession(request);
 
-        Connection conn = null;
-        Statement stmt = null;
-
-        try {
-            try {
-                String timezone = "?useLegacyDatetimeCode=false&serverTimezone=UTC";
-                conn = DriverManager.getConnection("jdbc:mysql://localhost/Products" + timezone, "root", "UuINyEpOccooeTn1");
-                stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT cid, category FROM Categories");
-                writeTitle(out);
-                writeHeader(out, rs, request.getParameter("cat"));
-                writeRightBar(out);
-
-            } catch (Exception e) {
-                response.sendError(500, e.toString());
-            } finally {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            }
-
-        } catch (SQLException e) {
-            response.sendError(500, e.toString());
-        }
+        // get the list of categories from BookeaterRestServices
+        List<Category> categories = RestClient.getCategoryList();
+        writeTitle(out);
+        writeHeader(out, categories, request.getParameter("cat"));
+        writeRightBar(out);
     }
 
-    private void writeHeader (PrintWriter out, ResultSet rs, String cat)
-            throws SQLException{
+    private void writeHeader (PrintWriter out, List<Category> categories, String cat) {
         if (cat == null) cat = "";
-        if (cat.equals("index"))    out.println ("<a href='home' class='active'>Home</a>");
-        else                        out.println ("<a href='home'>Home</a>");
+        String contextPath = getServletContext().getContextPath();
+        if (cat.equals("index"))    out.println ("<a href='" + contextPath + "' class='active'>Home</a>");
+        else                        out.println ("<a href='" + contextPath + "'>Home</a>");
 
-        while (rs.next()) {
-            String active = rs.getString("cid").equals(cat) ? "class='active'" : "";
-            out.printf("<a href='category?cat=%s' %s>%s</a>", rs.getString("cid"), active, rs.getString("category"));
+        for (Category c : categories) {
+            String active = c.getCid().equals(cat) ? "class='active'" : "";
+            out.printf("<a href='category.jsp?cat=%s' %s>%s</a>", c.getCid(), active, c.getCname());
         }
         out.flush();
     }
 
     private void writeTitle (PrintWriter out) {
+        String contextPath = getServletContext().getContextPath();
         out.println("<!DOCTYPE html>\n" +
                 "<html>\n" +
                 "    <head>\n" +
@@ -88,7 +73,7 @@ public class Header extends HttpServlet {
                 "        <script type=\"text/javascript\" src=\"js/searchSuggest.js\"></script>\n" +
                 "    </head>\n" +
                 "    <body>\n" +
-                "        <h1 id=\"title\"> <a href=\"home\">Bookeater</a> </h1>\n" +
+                "        <h1 id=\"title\"> <a href='" + contextPath + "'>Bookeater</a> </h1>\n" +
                 "        <header>\n" +
                 "            <nav>\n");
     }

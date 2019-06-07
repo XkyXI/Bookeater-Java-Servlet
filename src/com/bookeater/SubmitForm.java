@@ -1,5 +1,9 @@
 package com.bookeater;
 
+import com.bookeater.model.Book;
+import com.bookeater.model.Order;
+import com.bookeater.utility.RestClient;
+
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -8,22 +12,11 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.sql.*;
 import java.util.ArrayList;
+import java.util.List;
 
 @WebServlet(name = "SubmitForm", urlPatterns = "/submitOrder")
 public class SubmitForm extends HttpServlet {
-
-    @Override
-    public void init() throws ServletException {
-        super.init();
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         if (validateEntry(request)) {
@@ -39,7 +32,7 @@ public class SubmitForm extends HttpServlet {
     }
 
     private boolean validateEntry(HttpServletRequest request) {
-        ArrayList<String> params = new ArrayList<String>(request.getParameterMap().keySet());
+        ArrayList<String> params = new ArrayList<>(request.getParameterMap().keySet());
         for (String name : params) {
             String value = request.getParameter(name);
             if (value == null || value.isEmpty())
@@ -49,42 +42,29 @@ public class SubmitForm extends HttpServlet {
     }
 
     private void submitData(HttpServletRequest request) {
-        Connection conn = null;
-        PreparedStatement stmt = null;
         HttpSession session = request.getSession(false);
-        ArrayList<String> cart = (ArrayList<String>) session.getAttribute("cart");
+        List<Book> cart = (List<Book>) session.getAttribute("cart");
+        Order order = new Order();
 
-        try {
-            try {
-                String timezone = "?useLegacyDatetimeCode=false&serverTimezone=UTC";
-                conn = DriverManager.getConnection("jdbc:mysql://localhost/Products" + timezone, "root", "UuINyEpOccooeTn1");
-                stmt = conn.prepareStatement("INSERT INTO OrderSummary (firstname, lastname, phone," +
-                        "address, ship_method, ccard_name, ccard_num, ccard_date," +
-                        "ccard_code, ccard_zip, books) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                String addr = request.getParameter("address") + " " + request.getParameter("city") + ", " +
-                        request.getParameter("state") + " " + request.getParameter("zipcode");
-                stmt.setString(1, request.getParameter("firstname"));
-                stmt.setString(2, request.getParameter("lastname"));
-                stmt.setString(3, request.getParameter("phone"));
-                stmt.setString(4, addr);
-                stmt.setString(5, request.getParameter("shipping"));
-                stmt.setString(6, request.getParameter("cardname"));
-                stmt.setString(7, request.getParameter("cardnumber"));
-                stmt.setString(8, request.getParameter("exprdate"));
-                stmt.setInt(9, Integer.parseInt(request.getParameter("cvv")));
-                stmt.setString(10, request.getParameter("zipcode"));
-                stmt.setString(11, cart.toString());
-                stmt.executeUpdate();
+        String addr = request.getParameter("address") + " " + request.getParameter("city") + ", " +
+                request.getParameter("state") + " " + request.getParameter("zipcode");
+        String bookListStr = "";
+        for (int i = 0; i < cart.size() - 1; i++)
+            bookListStr += cart.get(i) + "|";
+        bookListStr += cart.get(cart.size() - 1);
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            } finally {
-                if (stmt != null) stmt.close();
-                if (conn != null) conn.close();
-            }
+        order.setBooks(bookListStr);
+        order.setFirstName(request.getParameter("firstname"));
+        order.setLastName(request.getParameter("lastname"));
+        order.setPhone(request.getParameter("phone"));
+        order.setAddress(addr);
+        order.setShipMethod(request.getParameter("shipping"));
+        order.setCcardName(request.getParameter("cardname"));
+        order.setCcardNumber(request.getParameter("cardnumber"));
+        order.setCcardDate(request.getParameter("exprdate"));
+        order.setCcardCode(Integer.parseInt(request.getParameter("cvv")));
+        order.setCcardZip(request.getParameter("zipcode"));
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        RestClient.postOrderData(order);
     }
 }

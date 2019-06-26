@@ -2,7 +2,9 @@
 
 Bookeater is a website that sells used books.
 [Click here](http://centaurus-4.ics.uci.edu:1027/)
-or [here](http://centaurus-4.ics.uci.edu:1025/bookeater/home)
+or [here](http://centaurus-4.ics.uci.edu:1025/Bookeater/)
+
+![Preview](https://media.giphy.com/media/cjykGegPcjXfv51XPG/giphy.gif)
 
 Manage database [here](http://centaurus-4.ics.uci.edu:1027/phpMyAdmin)
 - Username: root
